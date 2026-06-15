@@ -1,6 +1,6 @@
 # Livrable 1 — Plan de sécurité et budget
 **Projet Cloud — Master IA, 2iE**  
-**Groupe :** KhalisKone  
+**Groupe :** KONE M'PIE AIMAN KHALIS RAKINE & Andriampitahiana Mamy Herin'Ny Avo RABESIAKA  
 **Domaine :** Énergie — Prédiction de charge énergétique de bâtiments  
 **Date :** Juin 2026
 
@@ -22,7 +22,7 @@ Les architectes et bureaux d'études énergétiques manquent d'outils rapides po
 - **Dataset :** UCI Energy Efficiency — 768 bâtiments simulés, 8 features architecturales
 - **Features :** compacité relative, surface totale, surface des murs, surface du toit, hauteur, orientation, surface de vitrage, distribution du vitrage
 - **Cible :** Charge de chauffage Y1 (kWh/m²)
-- **Performance :** RMSE ≈ 0.5 kWh/m², R² ≈ 0.998 sur le jeu de test
+- **Performance :** RMSE ~ 0.5 kWh/m², R² ~ 0.998 sur le jeu de test
 
 ### Plateforme cloud retenue
 **AWS ECS Fargate** — retenu car utilisé en séance et disponible via les crédits académiques. Les images Docker sont hébergées sur Docker Hub (CI/CD) puis sur AWS ECR (production).
@@ -39,7 +39,7 @@ Internet
     │  HTTPS (port 443)
     ▼
 [Frontend React + nginx — port 5173]
-    │  /api/* → proxy vers backend
+    │  /api/* ->> proxy vers backend
     ▼
 [Backend FastAPI — port 8000]
     ├── POST /api/predict  ← JWT requis, rate-limité (20 req/min)
@@ -77,9 +77,9 @@ Internet
 **Catégories couvertes :** [x] Secrets [x] Données [x] Config cloud [x] Application [x] IA/modèle [x] Coûts [x] Réseau [x] Conformité
 
 **Top 3 prioritaires (score ≥ 15) :**
-1. **Score 20** — Fuite de clés AWS → trufflehog CI + GitHub Secrets
-2. **Score 16** — Coût EC2 dérapant → alerte budget 80 %
-3. **Score 15** — Données sans auth + rétention RGPD → JWT + politique 12 mois
+1. **Score 20** — Fuite de clés AWS ->> trufflehog CI + GitHub Secrets
+2. **Score 16** — Coût EC2 dérapant ->> alerte budget 80 %
+3. **Score 15** — Données sans auth + rétention RGPD ->> JWT + politique 12 mois
 
 ---
 
@@ -89,7 +89,7 @@ Internet
 
 | Rôle | Accès | Authentification |
 |------|-------|-----------------|
-| `user` | POST `/api/predict`, lecture historique personnel | JWT Google (token Google → JWT applicatif) |
+| `user` | POST `/api/predict`, lecture historique personnel | JWT Google (token Google ->> JWT applicatif) |
 | `admin` | Dashboard stats, historique complet, export | JWT Google + email dans `ADMIN_EMAILS` |
 | `ci` | Push images ECR, lecture S3 modèle | Rôle IAM OIDC GitHub Actions (pas de clé en dur) |
 

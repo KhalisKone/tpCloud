@@ -1,6 +1,6 @@
 # Livrable 2 — Application déployée et rapport technique
 **Projet Cloud — Master IA, 2iE**  
-**Groupe :** KhalisKone  
+**Groupe :** KONE M'PIE AIMAN KHALIS RAKINE & Andriampitahiana Mamy Herin'Ny Avo RABESIAKA  
 **Domaine :** Énergie — EnergyScore  
 **Date :** Juin 2026
 
@@ -23,11 +23,11 @@ Internet
     │  HTTPS
     ▼
 [nginx — port 5173]          Frontend React (Vite build statique)
-    │  /api/* → proxy
+    │  /api/* ->> proxy
     ▼
 [FastAPI — port 8000]        Backend Python 3.11
     ├── /api/predict          JWT requis · rate-limit 20 req/min
-    ├── /api/auth/google      Login Google → JWT applicatif
+    ├── /api/auth/google      Login Google ->> JWT applicatif
     ├── /api/admin/*          Réservé admin (email whitelist)
     ├── /api/health           Public (healthcheck)
     │
@@ -63,7 +63,7 @@ backend/app/
 ├── ratelimit.py     slowapi — 20 requêtes/minute par IP
 ├── schemas.py       Modèles Pydantic (PredictIn, PredictOut, AdminStats…)
 ├── ml/
-│   ├── model.py     Chargement modèle : S3 → fichier local → fallback entraîné
+│   ├── model.py     Chargement modèle : S3 ->> fichier local ->> fallback entraîné
 │   └── credit_model.py  Features énergie + fallback Gradient Boosting
 ├── models/          SQLAlchemy ORM (User, Prediction, Item)
 └── routes/          health, auth, predict, admin, items
@@ -72,7 +72,7 @@ backend/app/
 Le endpoint `/api/predict` :
 1. Vérifie le JWT (middleware `get_current_user`)
 2. Reçoit un tableau de 8 floats (features architecturales)
-3. Appelle `model.predict(X)` → retourne un float (kWh/m²)
+3. Appelle `model.predict(X)` ->> retourne un float (kWh/m²)
 4. Persiste la prédiction en base (historique admin)
 5. Retourne `{ prediction, id }`
 
@@ -135,7 +135,7 @@ Lancement en local :
 ```bash
 cp .env.example .env   # remplir les variables
 docker compose up --build
-# → http://localhost:5173
+# ->> http://localhost:5173
 ```
 
 ### CI/CD (GitHub Actions)
@@ -213,7 +213,7 @@ Le déploiement AWS n'a pas été finalisé — les tâches ECS et l'ALB n'ont p
 
 | Difficulté | Solution apportée |
 |-----------|------------------|
-| Version mismatch sklearn entre notebook (1.9.0) et backend (1.5.2) | Mise à jour `pyproject.toml` → sklearn 1.9.0 + `uv lock` |
+| Version mismatch sklearn entre notebook (1.9.0) et backend (1.5.2) | Mise à jour `pyproject.toml` ->> sklearn 1.9.0 + `uv lock` |
 | Secrets (tokens AWS/Docker) présents dans l'historique git du template | Création d'une branche orpheline (`git checkout --orphan`) pour repartir d'un historique propre |
 | Port 8000 déjà occupé au lancement de Docker Compose | `fuser -k 8000/tcp` pour libérer le port avant relance |
 | DNS Docker intermittent (hatchling non téléchargeable) | Relance du build (`docker compose up --build`) — erreur transitoire réseau |
