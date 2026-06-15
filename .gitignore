@@ -36,10 +36,8 @@ build/
 Thumbs.db
 
 # --- ML / artefacts ---
-*.pkl
 *.joblib
 *.h5
-models/*.pkl
 
 # --- DB locale ---
 *.db
