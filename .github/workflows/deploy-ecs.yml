@@ -1,0 +1,216 @@
+name: Deploy to ECS
+
+# Deploiement applicatif sur ECS, pattern inspire des templates GitLab CI
+# DOCFIRA (.deploy_ecs) :
+#   1. fetch la task definition actuellement attachee au service
+#   2. nettoie les champs geres par AWS (revision, status, etc.)
+#   3. injecte la nouvelle image ECR
+#   4. collecte toutes les variables vars.APPVAR_* et secrets.APPVAR_*,
+#      strippe le prefixe et les ajoute au environment[] du conteneur
+#   5. enregistre une nouvelle revision de task definition
+#   6. update le service pour basculer dessus
+#   7. attend services-stable
+#
+# La task definition n'est PAS commitee : elle vit dans AWS et est patchee
+# a chaque deploiement. La verite des variables est dans Settings > Secrets
+# and variables > Actions cote GitHub.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag d'image ECR a deployer"
+        required: false
+        default: latest
+        type: string
+      services:
+        description: "Services a redeployer"
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - backend
+          - frontend
+  workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        required: false
+        default: latest
+      services:
+        type: string
+        required: false
+        default: both
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  # Tous parametrables par Variable GitHub. Les valeurs par defaut correspondent
+  # au template d'origine : un fork qui garde ces noms n'a rien a configurer.
+  # Un fork qui nomme son cluster/ses services autrement cree les Variables
+  # ECS_CLUSTER, ECS_BACKEND_SERVICE, ECS_FRONTEND_SERVICE (voir AUTOMATION.md).
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-1' }}
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'projet-cloud-cluster' }}
+  ECS_BACKEND_SERVICE: ${{ vars.ECS_BACKEND_SERVICE || 'projet-cloud-backend-service' }}
+  ECS_FRONTEND_SERVICE: ${{ vars.ECS_FRONTEND_SERVICE || 'projet-cloud-frontend-service' }}
+
+jobs:
+  prep:
+    name: Choisir les services
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          case "${{ inputs.services }}" in
+            backend)  echo 'matrix=["backend"]' >> "$GITHUB_OUTPUT" ;;
+            frontend) echo 'matrix=["frontend"]' >> "$GITHUB_OUTPUT" ;;
+            *)        echo 'matrix=["backend","frontend"]' >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    needs: prep
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.prep.outputs.matrix) }}
+    steps:
+      - name: Verifier la config OIDC
+        env:
+          ROLE: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        run: |
+          if [ -z "$ROLE" ]; then
+            echo "::error::AWS_ROLE_TO_ASSUME absent. Voir infra/aws/AUTOMATION.md"
+            exit 1
+          fi
+
+      - name: Configurer AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Render task definition + register + update service
+        env:
+          # Liste EXPLICITE des variables d'application a injecter.
+          # Pour ajouter une variable : la creer dans Settings > Secrets and
+          # variables > Actions, puis ajouter une ligne ici. Conventions :
+          #   - non-sensible -> Variables (vars.*)
+          #   - sensible     -> Secrets   (secrets.*)
+          #   - toujours prefixer par APPVAR_ ; le prefixe est strippe avant
+          #     injection dans le conteneur (APPVAR_FOO -> FOO).
+          APPVAR_AWS_REGION:       ${{ vars.APPVAR_AWS_REGION }}
+          APPVAR_GOOGLE_CLIENT_ID: ${{ vars.APPVAR_GOOGLE_CLIENT_ID }}
+          APPVAR_ADMIN_EMAILS:     ${{ vars.APPVAR_ADMIN_EMAILS }}
+          APPVAR_MODEL_S3_BUCKET:  ${{ vars.APPVAR_MODEL_S3_BUCKET }}
+          APPVAR_MODEL_S3_KEY:     ${{ vars.APPVAR_MODEL_S3_KEY }}
+          APPVAR_JWT_SECRET:       ${{ secrets.APPVAR_JWT_SECRET }}
+          APPVAR_DATABASE_URL:     ${{ secrets.APPVAR_DATABASE_URL }}
+          # Inputs du workflow
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          SERVICE_NAME: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+
+          # Mapping service -> nom ECS (parametrable) / nom du depot ECR.
+          # Les noms ECS viennent de l'env du workflow (Variables GitHub avec
+          # defaut). Les depots ECR gardent le nom du template, aligne avec
+          # ci-cd.yml et le script push-ecr.
+          case "$SERVICE_NAME" in
+            backend)
+              ECS_SERVICE="$ECS_BACKEND_SERVICE"
+              ECR_REPO="projet-cloud-backend"
+              ;;
+            frontend)
+              ECS_SERVICE="$ECS_FRONTEND_SERVICE"
+              ECR_REPO="projet-cloud-frontend"
+              ;;
+          esac
+
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE="${REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
+          echo "Image cible : $IMAGE"
+
+          # 1. Recuperer la task definition en cours
+          TD_ARN=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' --output text)
+          echo "Task definition actuelle : $TD_ARN"
+
+          TD_JSON=$(aws ecs describe-task-definition \
+            --task-definition "$TD_ARN" --query 'taskDefinition')
+
+          # 2. Nettoyer les champs geres par AWS (non acceptes par register)
+          CLEAN=$(echo "$TD_JSON" | jq 'del(
+            .taskDefinitionArn, .revision, .status,
+            .requiresAttributes, .compatibilities,
+            .registeredAt, .registeredBy, .deregisteredAt,
+            .enableFaultInjection
+          )')
+
+          # 3. Collecter les APPVAR_* depuis l'env du runner.
+          #    Equivalent du `printenv | grep '^APPVAR_'` de DOCFIRA :
+          #    les variables listees dans le bloc env: ci-dessus sont
+          #    automatiquement exposees ici.
+          VARS_TMP=$(mktemp)
+          printenv | grep '^APPVAR_' | while IFS='=' read -r key val; do
+            if [ -n "$val" ]; then
+              name="${key#APPVAR_}"
+              jq -nc --arg n "$name" --arg v "$val" '{name:$n, value:$v}' >> "$VARS_TMP"
+            fi
+          done
+          if [ -s "$VARS_TMP" ]; then
+            APP_VARS=$(jq -s '.' "$VARS_TMP")
+          else
+            APP_VARS='[]'
+          fi
+          rm -f "$VARS_TMP"
+          NAMES=$(echo "$APP_VARS" | jq -r '.[].name' | paste -sd, -)
+          echo "APPVAR_ injectes -> ${NAMES:-(aucun)}"
+
+          # 4. Reconstruire environment[] :
+          #    - retirer les entrees dont le nom va etre reecrit par APPVAR_*
+          #    - concatener avec les nouvelles
+          UPDATED=$(echo "$CLEAN" | jq \
+            --arg image "$IMAGE" \
+            --argjson vars "$APP_VARS" '
+            .containerDefinitions[0].image = $image
+            | .containerDefinitions[0].environment = (
+                ((.containerDefinitions[0].environment // [])
+                  | map(select(.name as $n | ($vars | map(.name) | index($n)) | not)))
+                + $vars
+              )
+          ')
+
+          # 5. Register la nouvelle revision
+          echo "$UPDATED" > "$RUNNER_TEMP/td-new.json"
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://$RUNNER_TEMP/td-new.json" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "Nouvelle revision : $NEW_ARN"
+
+          # 6. Basculer le service
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+            --task-definition "$NEW_ARN" --force-new-deployment \
+            --query 'service.serviceName' --output text
+          echo "::notice::$ECS_SERVICE bascule sur $NEW_ARN"
+
+      - name: Attendre la stabilisation
+        env:
+          SERVICE_NAME: ${{ matrix.service }}
+        run: |
+          case "$SERVICE_NAME" in
+            backend)  ECS_SERVICE="$ECS_BACKEND_SERVICE" ;;
+            frontend) ECS_SERVICE="$ECS_FRONTEND_SERVICE" ;;
+          esac
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          echo "::notice::$ECS_SERVICE stable"

@@ -1,0 +1,107 @@
+<mxfile host="app.diagrams.net" agent="2iE-template" version="24.7.0">
+  <diagram name="Architecture MicroScore - variante budget" id="microscore-arch-budget">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="MicroScore — Architecture variante budget (sans NAT Gateway)" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#1A237E;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="900" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Compromis de coût assumé — ECS en subnet public, protégé par Security Groups. Économie : ~32 $/mois de NAT Gateway." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#757575;" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="900" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="users" value="Utilisateurs&#10;(navigateur)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#546E7A;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="110" width="170" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="google" value="Google Identity&#10;(OAuth — vérif. ID token)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="110" width="190" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="awscloud" value="AWS Cloud — Région eu-west-1 (Irlande)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#232F3E;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fontSize=13;fontStyle=1;fontColor=#232F3E;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="1220" height="600" as="geometry" />
+        </mxCell>
+
+        <mxCell id="vpc" value="VPC  —  10.0.0.0/16" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#7B1FA2;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fontSize=13;fontStyle=1;fontColor=#7B1FA2;" vertex="1" parent="1">
+          <mxGeometry x="70" y="280" width="860" height="500" as="geometry" />
+        </mxCell>
+
+        <mxCell id="igw" value="Internet Gateway" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B1FA2;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="410" y="300" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pubsub" value="Subnet public  —  10.0.1.0/24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#388E3C;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;fontColor=#388E3C;" vertex="1" parent="1">
+          <mxGeometry x="100" y="370" width="800" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="alb" value="Application Load Balancer&#10;SG alb-sg : 443 depuis 0.0.0.0/0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ED7100;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="370" y="395" width="260" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="ecs" value="ECS Fargate — tâches avec IP publique (pull ECR direct, sans NAT)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#ED7100;dashed=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=4;fontSize=11;fontStyle=1;fontColor=#ED7100;" vertex="1" parent="1">
+          <mxGeometry x="130" y="475" width="740" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="fe" value="Tâche frontend&#10;React + nginx" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FB8C00;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="160" y="515" width="300" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="be" value="Tâche backend&#10;FastAPI — SG backend-sg : 8000 depuis alb-sg uniquement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ED7100;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="510" y="515" width="330" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="sgnote" value="Les Security Groups sont la SEULE défense ici : aucune route privée. À calibrer strictement." style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#C62828;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="160" y="595" width="680" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="privsub" value="Subnet privé  —  10.0.2.0/24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;fontColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="675" width="800" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="rds" value="RDS PostgreSQL — SG db-sg : 5432 depuis backend-sg  (jamais exposé, toujours privé)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E73B8;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="230" y="705" width="540" height="48" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s3" value="S3&#10;Modèle ML (model.pkl)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3F8624;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="300" width="220" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="ecr" value="ECR&#10;Images Docker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ED7100;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="410" width="220" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="cw" value="CloudWatch&#10;Logs et métriques" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CD2264;strokeColor=none;fontColor=#ffffff;fontSize=12;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="520" width="220" height="64" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_users_igw" value="HTTPS 443" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#546E7A;strokeWidth=2;fontSize=11;endArrow=block;" edge="1" parent="1" source="users" target="igw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_igw_alb" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7B1FA2;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="igw" target="alb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_alb_fe" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ED7100;strokeWidth=2;fontSize=11;endArrow=block;" edge="1" parent="1" source="alb" target="fe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_alb_be" value="HTTP 8000" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ED7100;strokeWidth=2;fontSize=11;endArrow=block;" edge="1" parent="1" source="alb" target="be">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_be_rds" value="SQL 5432" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E73B8;strokeWidth=2;fontSize=11;endArrow=block;" edge="1" parent="1" source="be" target="rds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_be_s3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#3F8624;strokeWidth=2;fontSize=11;endArrow=block;" edge="1" parent="1" source="be" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ecs_ecr" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ED7100;strokeWidth=2;dashed=1;fontSize=11;endArrow=block;" edge="1" parent="1" source="ecs" target="ecr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_be_cw" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#CD2264;strokeWidth=2;dashed=1;fontSize=11;endArrow=block;" edge="1" parent="1" source="be" target="cw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_be_google" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#F9A825;strokeWidth=2;dashed=1;fontSize=11;endArrow=block;" edge="1" parent="1" source="be" target="google">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_users_google" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#F9A825;strokeWidth=2;dashed=1;fontSize=11;endArrow=block;" edge="1" parent="1" source="users" target="google">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="Trait plein : flux de requêtes  •  Trait pointillé : appels de service / authentification  •  Pas de NAT Gateway : les tâches ECS ont une IP publique" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#757575;" vertex="1" parent="1">
+          <mxGeometry x="60" y="822" width="1000" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

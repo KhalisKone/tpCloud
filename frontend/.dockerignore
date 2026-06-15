@@ -1,0 +1,17 @@
+# Dépendances et build
+node_modules/
+dist/
+.vite/
+
+# Secrets et env
+.env
+.env.*
+
+# Captures d'écran de QA (ne doivent pas finir dans l'image)
+screenshots/
+
+# Divers
+.git/
+.gitignore
+*.md
+npm-debug.log*

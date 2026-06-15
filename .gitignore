@@ -1,0 +1,54 @@
+# --- Secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+client_secret*.json
+*-credentials.json
+service-account*.json
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Node ---
+node_modules/
+dist/
+build/
+.npm/
+.parcel-cache/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- ML / artefacts ---
+*.pkl
+*.joblib
+*.h5
+models/*.pkl
+
+# --- DB locale ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Artefacts de QA (captures d'écran de dev) ---
+frontend/screenshots/
