@@ -35,17 +35,23 @@ Internet
     └── [model.pkl — 6.6 MB] Gradient Boosting chargé au démarrage
 ```
 
+**URL de production :** http://microscore-alb-843872004.eu-west-1.elb.amazonaws.com/login
+
 ### Comparaison avec le plan Livrable 1
 
 | Élément | Prévu (L1) | Réalisé |
 |---------|-----------|---------|
 | Frontend React | Oui | Oui |
 | Backend FastAPI + `/predict` | Oui | Oui |
-| PostgreSQL | Oui | Oui |
-| Modèle ML chargé au démarrage | Oui | Oui (Gradient Boosting) |
-| S3 pour le modèle | Prévu en prod | Modèle dans l'image Docker (simplifié) |
-| ALB AWS | Prévu | Non déployé (démo locale Docker Compose) |
-| HTTPS en production | Prévu | Non (démo localhost) |
+| PostgreSQL | Oui | SQLite (simplifié, pas de RDS) |
+| Modèle ML chargé au démarrage | Oui | Oui — `model.pkl` via S3 (`s3://2ie-energie-models-216126110211-eu-west-1-an/model.pkl`) |
+| S3 pour le modèle | Prévu en prod | Oui — bucket S3 dédié en eu-west-1 |
+| ALB AWS | Prévu | Oui — ALB `microscore-alb-843872004.eu-west-1.elb.amazonaws.com` |
+| ECS Fargate (backend + frontend) | Oui | Oui — cluster `microscore-cluster`, 2 services actifs |
+| CI/CD GitHub Actions → ECR → ECS | Oui | Oui — push ECR + deploy ECS automatique sur push `main` |
+| HTTPS en production | Prévu | Non (HTTP uniquement, certificat ALB non configuré) |
+| Rôles IAM ECS | Oui | Oui — `ecsTaskExecutionRole`, `ecsTaskAppRole` |
+| MFA AWS | Oui | Oui — MFA activé sur compte root et IAM admin |
 
 ---
 
@@ -177,35 +183,45 @@ Push sur main
 | JWT Google sur `/api/predict` | Oui | `get_current_user` dans `routes/predict.py` |
 | Rate limiting 20 req/min | Oui | `slowapi` dans `ratelimit.py` |
 | Validation Pydantic (8 features) | Oui | `PredictIn` dans `schemas.py` |
-| HTTPS en production | Non | Repoussé : démo locale uniquement (no ALB) |
-| Alerte budget AWS 80 % | Non | Pas de déploiement AWS effectué |
-| Rôle IAM OIDC GitHub Actions | Non | Repoussé : pas de push ECR configuré |
-| Rétention BDD 12 mois | Non | Repoussé : MVP prioritaire |
-| MFA AWS | Non | Compte académique géré par l'institution |
+| Déploiement AWS ECS Fargate | Oui | Cluster `microscore-cluster`, 2 services, ALB actif |
+| Rôles IAM ECS (execution + app) | Oui | `ecsTaskExecutionRole` (pull ECR, logs) + `ecsTaskAppRole` (S3 GetObject) |
+| MFA AWS | Oui | MFA activé sur compte root et IAM admin |
+| HTTPS en production | Non | HTTP uniquement — certificat ALB non configuré |
+| Alerte budget AWS 80 % | Non | À configurer dans AWS Budgets |
+| Rétention BDD 12 mois | Non | Repoussé : SQLite éphémère en production |
 
-**Bilan sécurité :** 7/12 mesures implémentées. Les 5 mesures repoussées concernent exclusivement le déploiement cloud (non effectué dans le cadre de cette démo) et la gestion du compte AWS institutionnel.
+**Bilan sécurité :** 10/13 mesures implémentées. Les 3 mesures restantes (HTTPS, alerte budget, rétention BDD) sont des améliorations post-MVP.
 
 ---
 
 ## 6. Coûts — réel vs estimé
 
-### Coûts réels (démo locale)
+### Coûts réels (déploiement AWS ECS Fargate)
 
-| Poste | Réel |
-|-------|------|
-| Infrastructure cloud | **0 $** (démo locale Docker Compose) |
-| Docker Hub | **0 $** (plan gratuit) |
-| GitHub Actions | **0 $** (plan gratuit, <2 000 min/mois) |
-| Dataset UCI | **0 $** (open data) |
-| **Total** | **0 $** |
+| Poste | Service | Réel |
+|-------|---------|------|
+| Compute backend | ECS Fargate 0.25 vCPU / 0.5 GB | ~7 $ (crédits académiques) |
+| Compute frontend | ECS Fargate 0.25 vCPU / 0.5 GB | ~7 $ (crédits académiques) |
+| Stockage modèle | S3 Standard (6.6 MB) | < 0.01 $ |
+| Load Balancer | ALB `microscore-alb-843872004` | ~18 $ (crédits académiques) |
+| Docker Hub | — | **0 $** (plan gratuit) |
+| GitHub Actions | — | **0 $** (plan gratuit, < 2 000 min/mois) |
+| Dataset UCI | — | **0 $** (open data) |
+| **Total (hors crédits)** | | **~32 $** |
 
-### Estimation si déployé sur AWS ECS Fargate
-
-Conformément au Livrable 1, le coût mensuel estimé pour 100 utilisateurs est **~48 $** (hors crédits académiques).
+Note : base de données SQLite (pas de RDS), donc pas de coût RDS (~15 $) par rapport à l'estimation L1.
 
 ### Écart plan / réalité
 
-Le déploiement AWS n'a pas été finalisé — les tâches ECS et l'ALB n'ont pas été créés. La stack fonctionne intégralement en local via Docker Compose, ce qui couvre l'objectif pédagogique de la démonstration.
+| Élément | Estimé L1 | Réel |
+|---------|-----------|------|
+| RDS PostgreSQL | 15 $ | 0 $ (SQLite à la place) |
+| ECS Fargate x2 | 14 $ | 14 $ |
+| ALB | 18 $ | 18 $ |
+| S3 modèle | < 0.01 $ | < 0.01 $ |
+| **Total** | **~48 $** | **~32 $** |
+
+L'économie de 16 $ vient de l'utilisation de SQLite au lieu de RDS PostgreSQL.
 
 ---
 
@@ -218,15 +234,20 @@ Le déploiement AWS n'a pas été finalisé — les tâches ECS et l'ALB n'ont p
 | Port 8000 déjà occupé au lancement de Docker Compose | `fuser -k 8000/tcp` pour libérer le port avant relance |
 | DNS Docker intermittent (hatchling non téléchargeable) | Relance du build (`docker compose up --build`) — erreur transitoire réseau |
 | Adaptation du template MicroScore (crédit, 7 features) vers énergie (8 features) | Réécriture `credit_model.py`, `PublicForm.jsx`, `test_predict.py` |
+| Deploy ECS échoue : task definition `None` | Nom du service ECS mal copié (`n7wfrSik` au lieu de `n7wfr5ik`) — correction de la variable GitHub |
+| model.pkl absent du bucket S3 | Upload manuel depuis le fichier local (6.6 MB) vers `s3://2ie-energie-models-216126110211-eu-west-1-an/` |
+| Workflow CI/CD bloqué : pas de rôle IAM OIDC | Modification des workflows pour accepter les clés AWS statiques en fallback |
 
 ---
 
 ## 8. Conclusion
 
-EnergyScore est une application ML complète, conteneurisée et testée :
+EnergyScore est une application ML complète, conteneurisée, testée et déployée en production sur AWS :
+
 - Un modèle Gradient Boosting précis (R² = 0.998) prédit la charge de chauffage des bâtiments
 - Une API FastAPI sécurisée (JWT, rate-limit, Pydantic) expose la prédiction
 - Un frontend React permet la saisie des 8 features et affiche la classe énergétique A/B/C/D
-- Une pipeline CI/CD GitHub Actions assure les scans de sécurité (trufflehog, pip-audit, Trivy) et les tests (7/7 passés) à chaque push
+- Une pipeline CI/CD GitHub Actions assure les scans de sécurité (trufflehog, pip-audit, Trivy) et les tests (7/7 passés) à chaque push, puis push les images sur ECR et déploie sur ECS automatiquement
+- L'application est accessible publiquement via l'ALB AWS : **http://microscore-alb-843872004.eu-west-1.elb.amazonaws.com/login**
 
-La principale limitation est l'absence de déploiement cloud public. La stack fonctionne intégralement en local (`docker compose up`), ce qui constitue la base technique nécessaire à un déploiement ECS Fargate ou Fly.io.
+Les principales limites restantes sont l'absence de HTTPS (certificat ALB non configuré) et l'utilisation de SQLite à la place de PostgreSQL RDS, ce qui rend la base de données éphémère entre les redeploiements.

@@ -156,8 +156,9 @@ Checklist des mesures de sécurité à appliquer en ECUE1 (Livrable 2) :
 - [x] Authentification API : **JWT Google** sur `/api/predict`
 - [x] Rate limiting : **slowapi** 20 req/min/IP sur `/api/predict`
 - [x] Validation entrées : **Pydantic** (types, min/max sur les 8 features)
+- [x] Application déployée sur AWS ECS Fargate — ALB : http://microscore-alb-843872004.eu-west-1.elb.amazonaws.com
+- [x] MFA activé sur le compte AWS root et IAM admin
+- [x] Rôles IAM ECS configurés (ecsTaskExecutionRole, ecsTaskAppRole)
 - [ ] HTTPS en production (certificat ALB / Let's Encrypt)
 - [ ] Alerte budget AWS à 80 % (40 $)
-- [ ] MFA activé sur le compte AWS root et IAM admin
 - [ ] Politique de rétention BDD 12 mois (script CRON de purge)
-- [ ] Rôle IAM OIDC GitHub Actions (sans clé AWS statique)
