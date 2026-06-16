@@ -81,19 +81,25 @@ jobs:
       matrix:
         service: ${{ fromJSON(needs.prep.outputs.matrix) }}
     steps:
-      - name: Verifier la config OIDC
+      - name: Verifier la config AWS
+        id: aws-config
         env:
           ROLE: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          KEY_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          if [ -z "$ROLE" ]; then
-            echo "::error::AWS_ROLE_TO_ASSUME absent. Voir infra/aws/AUTOMATION.md"
+          if [ -z "$ROLE" ] && ([ -z "$KEY_ID" ] || [ -z "$KEY_SECRET" ]); then
+            echo "::error::AWS non configuré. Ajouter AWS_ROLE_TO_ASSUME (OIDC) ou AWS_ACCESS_KEY_ID+AWS_SECRET_ACCESS_KEY dans les secrets."
             exit 1
           fi
+          echo "use_oidc=$( [ -n "$ROLE" ] && echo true || echo false )" >> $GITHUB_OUTPUT
 
-      - name: Configurer AWS via OIDC
+      - name: Configurer AWS (OIDC ou clés statiques)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ steps.aws-config.outputs.use_oidc == 'true' && secrets.AWS_ROLE_TO_ASSUME || '' }}
+          aws-access-key-id: ${{ steps.aws-config.outputs.use_oidc != 'true' && secrets.AWS_ACCESS_KEY_ID || '' }}
+          aws-secret-access-key: ${{ steps.aws-config.outputs.use_oidc != 'true' && secrets.AWS_SECRET_ACCESS_KEY || '' }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Render task definition + register + update service

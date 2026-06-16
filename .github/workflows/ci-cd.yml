@@ -159,19 +159,24 @@ jobs:
         id: ecr-config
         env:
           AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          if [ -z "$AWS_ROLE_TO_ASSUME" ]; then
-            echo "push=false" >> $GITHUB_OUTPUT
-            echo "::notice::ECR désactivé. Configurer AWS_ROLE_TO_ASSUME pour activer le push ECR."
-          else
+          if [ -n "$AWS_ROLE_TO_ASSUME" ] || ([ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]); then
             echo "push=true" >> $GITHUB_OUTPUT
+            echo "use_oidc=$( [ -n "$AWS_ROLE_TO_ASSUME" ] && echo true || echo false )" >> $GITHUB_OUTPUT
+          else
+            echo "push=false" >> $GITHUB_OUTPUT
+            echo "::notice::ECR désactivé. Configurer AWS_ROLE_TO_ASSUME (OIDC) ou AWS_ACCESS_KEY_ID+AWS_SECRET_ACCESS_KEY pour activer le push ECR."
           fi
 
-      - name: Configurer les identifiants AWS via OIDC
+      - name: Configurer les identifiants AWS (OIDC ou clés statiques)
         if: steps.ecr-config.outputs.push == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ steps.ecr-config.outputs.use_oidc == 'true' && secrets.AWS_ROLE_TO_ASSUME || '' }}
+          aws-access-key-id: ${{ steps.ecr-config.outputs.use_oidc != 'true' && secrets.AWS_ACCESS_KEY_ID || '' }}
+          aws-secret-access-key: ${{ steps.ecr-config.outputs.use_oidc != 'true' && secrets.AWS_SECRET_ACCESS_KEY || '' }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Créer les repositories ECR si besoin
